@@ -295,6 +295,43 @@ def generate_invoice_pdf(invoice_data, layout_config=None, show_grid=False):
 
     return pdf.output()
 
+def draw_challan_template(pdf):
+    """Draws the challan layout manually if no background image."""
+    pdf.set_line_width(0.3)
+    pdf.set_draw_color(0)
+    pdf.set_text_color(0)
+    
+    # Outer Border
+    pdf.rect(10, 10, 190, 277)
+    
+    # Header Title
+    pdf.set_xy(10, 15)
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(190, 10, "DELIVERY CHALLAN", align="C", border=0)
+    
+    # Header Line
+    pdf.line(10, 30, 200, 30)
+    
+    # Labels
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.text(120, 45, "Challan No:")
+    pdf.text(120, 55, "Date:")
+    
+    pdf.text(15, 45, "Delivered To:")
+    
+    # Table Header
+    y_tbl = 80
+    pdf.line(10, y_tbl, 200, y_tbl)
+    
+    pdf.text(15, 87, "Description of Material")
+    pdf.text(140, 87, "Quantity (Mtrs)")
+    
+    pdf.line(10, 92, 200, 92)
+    
+    # Vertical Line
+    pdf.line(130, y_tbl, 130, 250)
+
+
 def generate_challan_pdf(challan_data):
     """
     Generates a delivery challan PDF using 'challan_template.png'.
@@ -306,17 +343,21 @@ def generate_challan_pdf(challan_data):
     pdf = PDF(background_image=template_path)
     pdf.add_page()
     
+    if not template_path:
+        draw_challan_template(pdf)
+    
     pdf.set_font("Helvetica", size=12)
     
     # Challan No & Date
-    pdf.set_xy(150, 40)
+    # Adjusted coords for manual layout if needed, mostly fine
+    pdf.set_xy(150, 39)
     pdf.cell(50, 10, f"{challan_data['challan_no']}", border=0)
     
-    pdf.set_xy(150, 48)
+    pdf.set_xy(150, 49)
     pdf.cell(50, 10, f"{challan_data['date']}", border=0)
     
     # Supplier / Delivered To
-    pdf.set_xy(25, 55)
+    pdf.set_xy(15, 55)
     pdf.set_font("Helvetica", "B", 14)
     # Handle multi-line address if needed by just putting Name
     # Data often comes as {supplier: name} or {supplier_name: ..}
@@ -336,10 +377,10 @@ def generate_challan_pdf(challan_data):
     for i, item in enumerate(items):
         current_y = y_start + (i * row_height)
         
-        pdf.set_xy(25, current_y)
+        pdf.set_xy(15, current_y)
         pdf.cell(100, 10, f"{item.get('material', '')}", border=0)
         
-        pdf.set_xy(150, current_y)
+        pdf.set_xy(140, current_y)
         pdf.cell(40, 10, f"{item.get('quantity', '')}", border=0, align="C")
     
     return pdf.output()
