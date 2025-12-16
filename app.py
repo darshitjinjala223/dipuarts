@@ -16,17 +16,19 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
     :root {
-        --primary-color: #6366f1; /* Indigo 500 */
-        --background-color: #0f172a; /* Slate 900 */
-        --secondary-bg: #1e293b; /* Slate 800 */
-        --text-color: #f8fafc; /* Slate 50 */
-        --border-color: #334155; /* Slate 700 */
+        --primary-color: #4f46e5; /* Indigo 600 */
+        --background-color: #ffffff; /* White */
+        --secondary-bg: #f8fafc; /* Slate 50 */
+        --text-color: #1e293b; /* Slate 800 */
+        --muted-color: #64748b; /* Slate 500 */
+        --border-color: #cbd5e1; /* Slate 300 */
     }
     
     html, body, [class*="css"]  {
         font-family: 'Inter', sans-serif;
-        color: var(--text-color);
-        background-color: var(--background-color);
+        color: var(--text-color) !important;
+        background-color: var(--background-color) !important;
+        font-size: 20px; /* Increased Base Size to 20px */
     }
     
     /* App Background */
@@ -35,10 +37,26 @@ st.markdown("""
     }
     
     /* Headers */
-    h1, h2, h3 {
-        color: #f8fafc; /* White */
+    h1, h2, h3, h4, h5, h6 {
+        color: #1e293b !important;
         font-weight: 700;
         letter-spacing: -0.025em;
+    }
+    h1 { font-size: 2.6rem !important; }
+    h2 { font-size: 2.2rem !important; }
+    h3 { font-size: 2rem !important; }
+    
+    /* Text Elements */
+    p, span, div {
+        color: var(--text-color);
+        font-size: 20px;
+    }
+
+    /* Labels for Inputs */
+    .stTextInput label, .stNumberInput label, .stSelectbox label, .stDateInput label, .stTextArea label {
+        color: #334155 !important;
+        font-weight: 600;
+        font-size: 1.2rem !important;
     }
     
     /* Sidebar */
@@ -46,49 +64,74 @@ st.markdown("""
         background-color: var(--secondary-bg);
         border-right: 1px solid var(--border-color);
     }
+    [data-testid="stSidebar"] * {
+        color: #334155 !important;
+        font-size: 1rem !important; /* Sidebar slightly smaller than main content to fit */
+    }
     
-    /* Metrics Cards - Dark Mode */
+    /* Metrics Cards */
     [data-testid="metric-container"] {
-        background-color: var(--secondary-bg);
+        background-color: #ffff;
         border: 1px solid var(--border-color);
         padding: 20px;
         border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
         border-left: 5px solid var(--primary-color);
     }
     [data-testid="metric-container"] label {
-        color: #94a3b8 !important; /* Muted text for label */
+        color: var(--muted-color) !important;
+        font-size: 1rem !important;
     }
     [data-testid="metric-container"] div[data-testid="stMetricValue"] {
-        color: #f8fafc !important; /* Bright text for value */
+        color: #111827 !important;
+        font-size: 2.5rem !important;
     }
     
     /* Buttons */
     .stButton button {
-        background-color: var(--secondary-bg);
-        color: var(--text-color);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 0.5rem 1rem;
+        background-color: #ffffff;
+        color: #4f46e5;
+        border: 1px solid #4f46e5;
+        border-radius: 8px; 
+        padding: 0.8rem 1.6rem; 
         font-weight: 600;
+        font-size: 1.2rem !important;
         transition: all 0.2s;
     }
     .stButton button:hover {
-        border-color: var(--primary-color);
-        color: var(--primary-color);
-        background-color: #1e1b4b; /* Dark indigo bg */
+        border-color: #4338ca;
+        color: #ffffff;
+        background-color: #4f46e5;
     }
     
     /* Inputs */
-    .stTextInput input, .stNumberInput input, .stSelectbox, .stDateInput {
-        color: var(--text-color);
-        background-color: var(--secondary-bg);
-        border-color: var(--border-color);
+    .stTextInput input, .stNumberInput input, .stSelectbox div[data-testid="stMarkdownContainer"], .stDateInput input, .stTextArea textarea {
+        color: #0f172a !important;
+        background-color: #ffffff !important; 
+        border: 1px solid var(--border-color) !important;
+        border-radius: 6px;
+        font-size: 1.2rem !important;
+    }
+    /* Selectbox specific */
+    .stSelectbox div[data-baseweb="select"] > div {
+         background-color: #ffffff !important;
+         color: #0f172a !important;
+         border-color: var(--border-color) !important;
+         font-size: 1.2rem !important;
+    }
+
+    /* Info Box */
+    .stAlert {
+        background-color: #eff6ff !important;
+        border: 1px solid #bfdbfe !important;
+        color: #1e3a8a !important;
+        font-size: 1.1rem !important;
     }
     
     /* Dataframes and Tables */
     [data-testid="stDataFrame"] {
         border: 1px solid var(--border-color);
+        font-size: 1.1rem !important;
     }
     
     /* Dividers */
@@ -98,10 +141,13 @@ st.markdown("""
     
     /* Expander styling */
     .streamlit-expanderHeader {
-        background-color: var(--secondary-bg) !important;
+        background-color: #ffffff !important;
         color: var(--text-color) !important;
         border-radius: 6px;
+        border: 1px solid var(--border-color);
+        font-size: 1.2rem !important;
     }
+
 </style>
 """, unsafe_allow_html=True)
 if 'db_init' not in st.session_state:
@@ -300,7 +346,7 @@ elif menu == "Dashboard":
         
         # 3. Add Columns for Interaction
         # We need a boolean for selection and a float for Rate
-        supp_pending.insert(0, "Select", True)
+        supp_pending.insert(0, "Select", False)
         supp_pending['Rate'] = 0.0 # Default rate
         
         st.write("Step 1: Select Challans to Bill")
@@ -630,7 +676,7 @@ elif menu == "Suppliers":
                             }
                             
                             try:
-                                xlsx_path = xls_gen.generate_invoice_excel(inv_data, output_path=f"temp_inv_{row['invoice_no']}.xlsx")
+                                xlsx_path = xls_gen.generate_invoice_excel(inv_data, output_path=f"generated/temp_inv_{row['invoice_no']}.xlsx")
                                 with open(xlsx_path, "rb") as f: inv_bytes = f.read()
                                 
                                 st.session_state[gen_key] = {'xls': inv_bytes}
@@ -683,7 +729,7 @@ elif menu == "Suppliers":
                             }
                             
                             try:
-                                xlsx_path = xls_gen.generate_challan_excel(chal_data, output_path=f"temp_ch_{row['challan_no']}.xlsx")
+                                xlsx_path = xls_gen.generate_challan_excel(chal_data, output_path=f"generated/temp_ch_{row['challan_no']}.xlsx")
                                 with open(xlsx_path, "rb") as f: ch_bytes = f.read()
                                 
                                 st.session_state[gen_key] = {'xls': ch_bytes}

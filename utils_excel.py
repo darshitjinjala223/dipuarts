@@ -8,7 +8,8 @@ def apply_style(cell, size=12):
     """Applies Times New Roman with specific size (default 12) to a cell."""
     cell.font = Font(name='Times New Roman', size=size)
 
-def generate_invoice_excel(data, template_path="INVOICE FORMAT2.xlsx", output_path="temp_invoice.xlsx"):
+def generate_invoice_excel(data, template_path="templates/INVOICE FORMAT2.xlsx", output_path="generated/temp_invoice.xlsx"):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     shutil.copy(template_path, output_path)
     wb = load_workbook(output_path)
     ws = wb.active 
@@ -97,7 +98,8 @@ def generate_invoice_excel(data, template_path="INVOICE FORMAT2.xlsx", output_pa
     wb.save(output_path)
     return output_path
 
-def generate_challan_excel(data, template_path="CHALLAN FORMAT.xlsx", output_path="temp_challan.xlsx"):
+def generate_challan_excel(data, template_path="templates/CHALLAN FORMAT.xlsx", output_path="generated/temp_challan.xlsx"):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     shutil.copy(template_path, output_path)
     wb = load_workbook(output_path)
     ws = wb.active

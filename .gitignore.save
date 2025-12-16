@@ -22,8 +22,10 @@ generated/
 .vscode/
 .idea/
 
+
+
 # Secrets
 *.txt
 *token*
 *secret*
-github_access_token.txt
+
