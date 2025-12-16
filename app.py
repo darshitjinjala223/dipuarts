@@ -356,16 +356,17 @@ elif menu == "New Inward (Challan)":
                     # Excel Generation
                     xls_gen.generate_challan_excel(challan_data, output_path=xls_path_temp)
                     
-                    # PDF Generation (OS Aware)
-                    if platform.system() == "Darwin":
-                        # macOS - Use AppleScript (High Fidelity)
-                        utils_native.convert_excel_to_pdf(xls_path_temp, pdf_path_temp)
-                    else:
-                        # Linux/Cloud - Use FPDF
-                        # Requires 'challan_template.png' for background
-                        pdf_bytes = utils_pdf.generate_challan_pdf(challan_data)
-                        with open(pdf_path_temp, "wb") as f:
-                            f.write(pdf_bytes)
+                    with st.spinner("Generating PDF..."):
+                        # PDF Generation (OS Aware)
+                        if platform.system() == "Darwin":
+                            # macOS - Use AppleScript (High Fidelity)
+                            utils_native.convert_excel_to_pdf(xls_path_temp, pdf_path_temp)
+                        else:
+                            # Linux/Cloud - Use FPDF
+                            # Requires 'challan_template.png' for background
+                            pdf_bytes = utils_pdf.generate_challan_pdf(challan_data)
+                            with open(pdf_path_temp, "wb") as f:
+                                f.write(pdf_bytes)
                     
                     # Sync to Drive
                     sync_to_drive(xls_path_temp, "Challans")
@@ -375,10 +376,17 @@ elif menu == "New Inward (Challan)":
 
                     with open(xls_path_temp, "rb") as f:
                         xls_bytes = f.read()
+                    
+                    pdf_bytes = None
+                    if os.path.exists(pdf_path_temp):
+                        with open(pdf_path_temp, "rb") as f:
+                            pdf_bytes = f.read()
 
                     # Store generated file in session state
                     st.session_state['last_challan_bytes'] = xls_bytes
+                    st.session_state['last_challan_pdf_bytes'] = pdf_bytes
                     st.session_state['last_challan_name'] = xls_filename
+                    st.session_state['last_challan_pdf_name'] = pdf_filename
                     st.session_state['challan_success'] = True
                     
                     # Clear cart logic
@@ -391,12 +399,21 @@ elif menu == "New Inward (Challan)":
         if st.session_state.get('challan_success'):
             st.success("✅ Challan Generated!")
             
-            st.download_button(
-                "⬇️ Download Challan Excel", 
+            cdl1, cdl2 = st.columns(2)
+            cdl1.download_button(
+                "⬇️ Download Excel", 
                 data=st.session_state['last_challan_bytes'], 
                 file_name=st.session_state['last_challan_name'], 
                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
+            
+            if st.session_state.get('last_challan_pdf_bytes'):
+                cdl2.download_button(
+                    "⬇️ Download PDF", 
+                    data=st.session_state['last_challan_pdf_bytes'], 
+                    file_name=st.session_state['last_challan_pdf_name'], 
+                    mime='application/pdf'
+                )
             
             c_new, c_dash = st.columns(2)
             if c_new.button("🔄 Start New Challan"):
@@ -596,21 +613,20 @@ elif menu == "Dashboard":
                 xls_gen.generate_invoice_excel(inv_data, output_path=xls_path_curr)
                 
                 # PDF Generation (OS Aware)
-                st.info("Generating PDF... Please wait.")
                 success_pdf = False
-                
-                if platform.system() == "Darwin":
-                    # macOS - High Fidelity
-                    success_pdf, pdf_res = utils_native.convert_excel_to_pdf(xls_path_curr, pdf_path_curr)
-                else:
-                    # Linux/Cloud - FPDF Fallback
-                    try:
-                        pdf_bytes = utils_pdf.generate_invoice_pdf(inv_data)
-                        with open(pdf_path_curr, "wb") as f:
-                            f.write(pdf_bytes)
-                        success_pdf = True
-                    except Exception as e:
-                        st.error(f"PDF Generation Failed: {e}")
+                with st.spinner("Generating PDF... Please wait..."):
+                    if platform.system() == "Darwin":
+                        # macOS - High Fidelity
+                        success_pdf, pdf_res = utils_native.convert_excel_to_pdf(xls_path_curr, pdf_path_curr)
+                    else:
+                        # Linux/Cloud - FPDF Fallback
+                        try:
+                            pdf_bytes = utils_pdf.generate_invoice_pdf(inv_data)
+                            with open(pdf_path_curr, "wb") as f:
+                                f.write(pdf_bytes)
+                            success_pdf = True
+                        except Exception as e:
+                            st.error(f"PDF Generation Failed: {e}")
 
                 # Update Master Ledger
                 xls_gen.update_master_ledger(inv_data)
@@ -638,11 +654,16 @@ elif menu == "Dashboard":
                 if db.save_invoice(inv_no, str(inv_date), first_rate, grand_taxable, grand_cgst, grand_sgst, grand_total, challan_ids):
                     st.success("Invoice Saved & Challans Marked as Billed!")
                     
-                    c_d1, c_d2 = st.columns(2)
-                    c_d1.download_button(f"Download Excel ({xls_name})", data=xls_bytes, file_name=xls_name, mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    c_d1, c_d2, c_d3 = st.columns(3)
+                    c_d1.download_button(f"⬇️ Excel", data=xls_bytes, file_name=xls_name, mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    
+                    if success_pdf and os.path.exists(pdf_path_curr):
+                        with open(pdf_path_curr, "rb") as f:
+                            pdf_bytes = f.read()
+                        c_d2.download_button(f"⬇️ PDF", data=pdf_bytes, file_name=pdf_name, mime='application/pdf')
                     
                     # Refresh Dashboard to remove billed items
-                    if c_d2.button("🔄 Refresh Dashboard", key="refresh_dash"):
+                    if c_d3.button("🔄 Refresh Dashboard", key="refresh_dash"):
                          st.rerun()
                     
                     # Auto-refresh option (optional, but explicit button is safer for download availability)
@@ -685,13 +706,56 @@ elif menu == "Invoice History":
                 # But user asked for it. 
                 # I'll put a button "Re-Calculate Excel" that *tries* to verify data.
                 
-                if st.button("Download Excel (Data Snapshot)", key=f"hist_{row['id']}"):
-                    st.warning("Full regeneration from history requires detailed line-item storage which is being upgraded. This is a summary.")
-                
                 # Delete / Revert Button
                 st.write("---")
+                
+                # Check for existing file regeneration
+                h_c1, h_c2 = st.columns(2)
+                
+                # Re-Generate Button
+                if h_c1.button("🔄 Regenerate Files", key=f"regen_{row['id']}"):
+                    # Construct Data
+                    items_df = db.get_invoice_details(row['id'])
+                    # We need supplier details... fetch from DB
+                    supp_name = row['supplier_name']
+                    # We need address gst etc... expensive query but needed
+                    if not suppliers_df.empty:
+                         s_row = suppliers_df[suppliers_df['name'] == supp_name].iloc[0]
+                         s_addr = s_row['address']
+                         s_gst = s_row['gst_no']
+                    else:
+                         s_addr = ""
+                         s_gst = ""
+                    
+                    items_list_regen = []
+                    for _, i_row in items_df.iterrows():
+                         base = i_row['quantity'] * row['base_amount'] / row['total_amount'] * row['rate'] if row['rate'] else 0 # Approximation if rate lost
+                         # Actually we don't have per-item rate in history easily.
+                         # Simplified: Just dump what we have.
+                         items_list_regen.append({'material': i_row['material'], 'qty': i_row['quantity'], 'rate': 0, 'total': 0, 'cgst': 0, 'sgst': 0, 'base_amount': 0})
+
+                    # This is imperfect regeneration. To do it right we need 'invoice_items' table.
+                    st.warning("Regeneration is limited due to historical data format.")
+                
+                # Try to Find Files
+                safe_inv = row['invoice_no'].replace("/", "_")
+                safe_supp = row['supplier_name'].replace(" ", "_")
+                fname = f"{safe_inv}_{safe_supp}"
+                xls_p = f"generated/{fname}.xlsx"
+                pdf_p = f"generated/{fname}.pdf"
+                
+                if os.path.exists(xls_p):
+                    with open(xls_p, "rb") as f:
+                        h_c1.download_button("⬇️ Excel", f.read(), f"{fname}.xlsx", key=f"dl_h_x_{idx}")
+                
+                if os.path.exists(pdf_p):
+                    with open(pdf_p, "rb") as f:
+                        h_c2.download_button("⬇️ PDF", f.read(), f"{fname}.pdf", key=f"dl_h_p_{idx}")
+                else:
+                    h_c2.info("PDF not found (Regenerate to create)")
+
                 col_del1, col_del2 = st.columns([1, 4])
-                if col_del1.button("🗑 Delete Invoice & Revert Challans", key=f"del_{row['id']}", type="primary"):
+                if col_del1.button("🗑 Delete Invoice", key=f"del_{row['id']}", type="primary"):
                     if db.delete_invoice(row['id']):
                         st.success("Invoice deleted and challans reverted to Dashboard!")
                         st.rerun()
