@@ -429,3 +429,27 @@ def get_master_challans():
     df = pd.read_sql(query, conn)
     conn.close()
     return df
+
+def get_last_invoice_no():
+    """Get the highest numeric invoice number."""
+    conn = get_connection()
+    # We cast to integer to find max. If starts with non-digit, this might fail or return 0, which is fine as we default to 500.
+    # Logic: Filter for numeric invoice_nos
+    query = "SELECT invoice_no FROM invoices WHERE is_deleted IS NULL OR is_deleted = 0"
+    try:
+        c = conn.cursor()
+        c.execute(query)
+        rows = c.fetchall()
+        max_val = 0
+        for r in rows:
+            try:
+                val = int(r[0])
+                if val > max_val:
+                    max_val = val
+            except:
+                continue
+        return max_val
+    except:
+        return 0
+    finally:
+        conn.close()

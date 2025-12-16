@@ -1,9 +1,12 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
-import database as db
 import utils_excel as xls_gen
+import utils_native
+import utils_pdf
 import os
+import shutil
+import platform
 from PIL import Image
 
 # Page Config
@@ -154,6 +157,55 @@ if 'db_init' not in st.session_state:
     db.init_db()
     st.session_state['db_init'] = True
 
+# --- Google Drive Sync Helper ---
+def get_drive_path():
+    """Attempt to locate the Google Drive root directory."""
+    home = os.path.expanduser("~")
+    # Common locations
+    candidates = [
+        os.path.join(home, "Google Drive"),
+        os.path.join(home, "My Drive") # Sometimes purely My Drive
+    ]
+    # Check CloudStorage (Modern macOS)
+    cs_path = os.path.join(home, "Library", "CloudStorage")
+    if os.path.exists(cs_path):
+        for d in os.listdir(cs_path):
+            if "GoogleDrive" in d:
+                candidates.append(os.path.join(cs_path, d))
+    
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return None
+
+def sync_to_drive(src_path, dest_subfolder, dest_filename=None):
+    """Copy file to Google Drive folder/AutoBiller_Data/<subfolder>."""
+    drive_root = get_drive_path()
+    if not drive_root:
+        return False
+    
+    # Target Structure: Drive/AutoBiller_Data
+    app_root = os.path.join(drive_root, "AutoBiller_Data")
+    target_dir = os.path.join(app_root, dest_subfolder)
+    os.makedirs(target_dir, exist_ok=True)
+    
+    fname = dest_filename if dest_filename else os.path.basename(src_path)
+    dst = os.path.join(target_dir, fname)
+    
+    try:
+        shutil.copy2(src_path, dst)
+        return True
+    except Exception as e:
+        print(f"Sync Fail: {e}")
+        return False
+
+def sync_db():
+    """Sync the database file to Drive."""
+    sync_to_drive("autobiller.db", "Database")
+
+# Initial Sync
+sync_db()
+
 st.title("🧾 Auto Biller")
 
 # Sidebar Navigation
@@ -290,14 +342,42 @@ elif menu == "New Inward (Challan)":
                         'quantity': sum(x['quantity'] for x in st.session_state.challan_cart)
                     }
 
+                    
+                    # File Naming: Challan No + Supplier
+                    safe_supp = selected_supplier.replace(" ", "_")
+                    filename_base = f"{c_no}_{safe_supp}"
+                    xls_filename = f"{filename_base}.xlsx"
+                    pdf_filename = f"{filename_base}.pdf"
+                    
+                    xls_path_temp = f"generated/{xls_filename}"
+                    pdf_path_temp = f"generated/{pdf_filename}"
+
                     # Excel Generation
-                    xls_path = xls_gen.generate_challan_excel(challan_data)
-                    with open(xls_path, "rb") as f:
+                    xls_gen.generate_challan_excel(challan_data, output_path=xls_path_temp)
+                    
+                    # PDF Generation (OS Aware)
+                    if platform.system() == "Darwin":
+                        # macOS - Use AppleScript (High Fidelity)
+                        utils_native.convert_excel_to_pdf(xls_path_temp, pdf_path_temp)
+                    else:
+                        # Linux/Cloud - Use FPDF
+                        # Requires 'challan_template.png' for background
+                        pdf_bytes = utils_pdf.generate_challan_pdf(challan_data)
+                        with open(pdf_path_temp, "wb") as f:
+                            f.write(pdf_bytes)
+                    
+                    # Sync to Drive
+                    sync_to_drive(xls_path_temp, "Challans")
+                    if os.path.exists(pdf_path_temp):
+                        sync_to_drive(pdf_path_temp, "Challans")
+                    sync_db()
+
+                    with open(xls_path_temp, "rb") as f:
                         xls_bytes = f.read()
 
                     # Store generated file in session state
                     st.session_state['last_challan_bytes'] = xls_bytes
-                    st.session_state['last_challan_name'] = f"Challan_{c_no}_{selected_supplier}.xlsx"
+                    st.session_state['last_challan_name'] = xls_filename
                     st.session_state['challan_success'] = True
                     
                     # Clear cart logic
@@ -431,7 +511,12 @@ elif menu == "Dashboard":
             
             with st.form("gen_invoice"):
                 c1, c2, c3, c4 = st.columns(4)
-                inv_no = c1.text_input("Invoice No")
+                
+                # Auto Increment Invoice No
+                last = db.get_last_invoice_no()
+                next_val = last + 1 if last >= 500 else 501
+                
+                inv_no = c1.text_input("Invoice No", value=str(next_val))
                 inv_date = c2.date_input("Invoice Date", value=date.today())
                 order_no = c3.text_input("Order No")
                 order_date = c4.date_input("Order Date", value=date.today())
@@ -494,9 +579,51 @@ elif menu == "Dashboard":
                     'total': grand_total
                 }
                 
+                
+                # File Naming
+                safe_inv = inv_no.replace("/", "_") # Sanitize
+                safe_supp = selected_supp_name.replace(" ", "_")
+                base_name = f"{safe_inv}_{safe_supp}"
+                xls_name = f"{base_name}.xlsx"
+                pdf_name = f"{base_name}.pdf"
+                
+                # Output Paths
+                xls_path_curr = f"generated/{xls_name}"
+                pdf_path_curr = f"generated/{pdf_name}"
+
                 # Excel Generation
-                xls_inv_path = xls_gen.generate_invoice_excel(inv_data)
-                with open(xls_inv_path, "rb") as f:
+                xls_gen.generate_invoice_excel(inv_data, output_path=xls_path_curr)
+                
+                # PDF Generation (OS Aware)
+                st.info("Generating PDF... Please wait.")
+                success_pdf = False
+                
+                if platform.system() == "Darwin":
+                    # macOS - High Fidelity
+                    success_pdf, pdf_res = utils_native.convert_excel_to_pdf(xls_path_curr, pdf_path_curr)
+                else:
+                    # Linux/Cloud - FPDF Fallback
+                    try:
+                        pdf_bytes = utils_pdf.generate_invoice_pdf(inv_data)
+                        with open(pdf_path_curr, "wb") as f:
+                            f.write(pdf_bytes)
+                        success_pdf = True
+                    except Exception as e:
+                        st.error(f"PDF Generation Failed: {e}")
+
+                # Update Master Ledger
+                xls_gen.update_master_ledger(inv_data)
+                
+                # Sync Everything to Drive
+                sync_to_drive(xls_path_curr, "Invoices")
+                if success_pdf and os.path.exists(pdf_path_curr):
+                    sync_to_drive(pdf_path_curr, "Invoices")
+                
+                # Sync Master & DB
+                sync_to_drive("generated/Master_Sales.xlsx", "Master")
+                sync_db()
+
+                with open(xls_path_curr, "rb") as f:
                     xls_bytes = f.read()
                 
                 # Save to DB (Mark Billed)
@@ -511,7 +638,7 @@ elif menu == "Dashboard":
                     st.success("Invoice Saved & Challans Marked as Billed!")
                     
                     c_d1, c_d2 = st.columns(2)
-                    c_d1.download_button("Download Invoice Excel", data=xls_bytes, file_name=f"Invoice_{inv_no}_{selected_supp_name}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    c_d1.download_button(f"Download Excel ({xls_name})", data=xls_bytes, file_name=xls_name, mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
                     
                     # Refresh Dashboard to remove billed items
                     if c_d2.button("🔄 Refresh Dashboard", key="refresh_dash"):

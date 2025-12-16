@@ -9,7 +9,22 @@ def apply_style(cell, size=12):
     cell.font = Font(name='Times New Roman', size=size)
 
 def generate_invoice_excel(data, template_path="templates/INVOICE FORMAT2.xlsx", output_path="generated/temp_invoice.xlsx"):
+    # Resolve absolute paths to ensure reliability on Cloud
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # If template path is relative, make it absolute relative to base_dir
+    if not os.path.isabs(template_path):
+        template_path = os.path.join(base_dir, template_path)
+    
+    if not os.path.isabs(output_path):
+        output_path = os.path.join(base_dir, output_path)
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    if not os.path.exists(template_path):
+        # Fallback debug or error
+        raise FileNotFoundError(f"Template not found at: {template_path}")
+
     shutil.copy(template_path, output_path)
     wb = load_workbook(output_path)
     ws = wb.active 
@@ -99,7 +114,20 @@ def generate_invoice_excel(data, template_path="templates/INVOICE FORMAT2.xlsx",
     return output_path
 
 def generate_challan_excel(data, template_path="templates/CHALLAN FORMAT.xlsx", output_path="generated/temp_challan.xlsx"):
+    # Resolve absolute paths
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    if not os.path.isabs(template_path):
+        template_path = os.path.join(base_dir, template_path)
+    
+    if not os.path.isabs(output_path):
+        output_path = os.path.join(base_dir, output_path)
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"Template not found at: {template_path}")
+
     shutil.copy(template_path, output_path)
     wb = load_workbook(output_path)
     ws = wb.active
@@ -169,3 +197,48 @@ def safe_write(ws, cell_ref, value, font_size=None):
     except AttributeError:
         # Fallback if somehow missed (MergedCell has no value setter)
         pass 
+
+def update_master_ledger(invoice_data, master_path="generated/Master_Sales.xlsx"):
+    """
+    Updates the Master Sales Excel file with new invoice data.
+    Columns: Invoice No, Supplier Name, Taxable, CGST, SGST, Total.
+    Sorted by Invoice No.
+    """
+    import pandas as pd
+    
+    # Define Columns
+    cols = ["Invoice No", "Date", "Supplier Name", "Taxable Amount", "CGST", "SGST", "Total Amount"]
+    
+    # Prepare New Row
+    new_row = {
+        "Invoice No": invoice_data['invoice_no'],
+        "Date": invoice_data['date'],
+        "Supplier Name": invoice_data['supplier_name'],
+        "Taxable Amount": float(invoice_data['base_amount']),
+        "CGST": float(invoice_data['cgst']),
+        "SGST": float(invoice_data['sgst']),
+        "Total Amount": float(invoice_data['total'])
+    }
+    
+    if os.path.exists(master_path):
+        df = pd.read_excel(master_path)
+    else:
+        df = pd.DataFrame(columns=cols)
+        
+    # Append
+    # Concat is safer than append (deprecated)
+    new_df = pd.DataFrame([new_row])
+    df = pd.concat([df, new_df], ignore_index=True)
+    
+    # Sort by Invoice No
+    # Try to convert to numeric for sorting if possible, else string sort
+    try:
+        df['sort_key'] = pd.to_numeric(df['Invoice No'])
+        df = df.sort_values(by='sort_key')
+        df = df.drop(columns=['sort_key'])
+    except:
+        df = df.sort_values(by='Invoice No')
+        
+    # Save
+    df.to_excel(master_path, index=False)
+    return master_path 
