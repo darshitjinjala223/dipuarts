@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
+import database as db
 import utils_excel as xls_gen
 import utils_native
 import utils_pdf
