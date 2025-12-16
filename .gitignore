@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env
+
+# Database
+*.db
+
+# Temp / generated Excel files
+temp_*.xlsx
+~$*.xlsx
+
+# OS / editor
+.vscode/
+.idea/
+

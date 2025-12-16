@@ -1,0 +1,169 @@
+from openpyxl import load_workbook
+from openpyxl.styles import Font
+import shutil
+import os
+from num2words import num2words
+
+def apply_style(cell, size=12):
+    """Applies Times New Roman with specific size (default 12) to a cell."""
+    cell.font = Font(name='Times New Roman', size=size)
+
+def generate_invoice_excel(data, template_path="INVOICE FORMAT2.xlsx", output_path="temp_invoice.xlsx"):
+    shutil.copy(template_path, output_path)
+    wb = load_workbook(output_path)
+    ws = wb.active 
+    
+    # 1. Header
+    # Invoice Date [D12]
+    ws['D12'] = data['date']; apply_style(ws['D12'])
+    # Invoice No [D11]
+    ws['D11'] = data['invoice_no']; apply_style(ws['D11'])
+    
+    # Challan Data [K11, K12]
+    ws['K11'] = data['challan_no']; apply_style(ws['K11'])
+    ws['K12'] = data.get('challan_date', ''); apply_style(ws['K12'])
+    
+    # Order Data [K13, K14]
+    ws['K13'] = data.get('order_no', ''); apply_style(ws['K13'])
+    ws['K14'] = data.get('order_date', ''); apply_style(ws['K14'])
+    
+    # 2. Buyer Details [D17, D18, D20]
+    ws['D17'] = data['supplier_name']; apply_style(ws['D17'])
+    ws['D18'] = data.get('supplier_address', ''); apply_style(ws['D18'])
+    ws['D20'] = data.get('supplier_gst', ''); apply_style(ws['D20'])
+    
+    # 3. Line Items (Dynamic Rows starting at 24)
+    r = 24
+    
+    # Check for multiple items payload
+    items = data.get('items', [])
+    if not items:
+        # Fallback for single item legacy
+        items = [{
+            'material': data.get('material', ''),
+            'qty': data.get('qty', 0),
+            'rate': data.get('rate', 0),
+            'base_amount': data.get('base_amount', 0),
+            'cgst': data.get('cgst', 0),
+            'sgst': data.get('sgst', 0),
+            'total': data.get('total', 0)
+        }]
+    
+    for i, item in enumerate(items):
+        current_r = r + i
+        # Sr No
+        safe_write(ws, f'B{current_r}', i + 1, 10)
+        # Description
+        safe_write(ws, f'C{current_r}', item['material'], 10)
+        # MTR
+        safe_write(ws, f'G{current_r}', item['qty'], 10)
+        # Rate
+        safe_write(ws, f'H{current_r}', item['rate'], 10)
+        # Taxable
+        safe_write(ws, f'I{current_r}', item['base_amount'], 10)
+        # GST Rate
+        safe_write(ws, f'J{current_r}', "5%", 10)
+        # GST Amount
+        row_gst = item['cgst'] + item['sgst']
+        safe_write(ws, f'K{current_r}', row_gst, 10)
+        # Total
+        safe_write(ws, f'L{current_r}', item['total'], 10)
+    
+    # 4. Footer Totals - Size 10
+    # Taxable Amount [L39]
+    ws['L39'] = data['base_amount']; apply_style(ws['L39'], 10)
+    
+    # CGST [L40]
+    ws['L40'] = data['cgst']; apply_style(ws['L40'], 10)
+    
+    # SGST [L41]
+    ws['L41'] = data['sgst']; apply_style(ws['L41'], 10)
+    
+    # Grand Total [L42]
+    ws['L42'] = data['total']; apply_style(ws['L42'], 10)
+    
+    # Amount In Words [B39] (Merged B39:H40 approx)
+    total_val = data['total']
+    try:
+        words = num2words(total_val, lang='en_IN').title() + " Only"
+    except:
+        words = f"{total_val} Only"
+        
+    ws['B39'] = f"Total Invoice amount in words: {words}"
+    apply_style(ws['B39'], 12) # Keep text 12
+    
+    # Reverted Column Width adjustments
+    
+    wb.save(output_path)
+    return output_path
+
+def generate_challan_excel(data, template_path="CHALLAN FORMAT.xlsx", output_path="temp_challan.xlsx"):
+    shutil.copy(template_path, output_path)
+    wb = load_workbook(output_path)
+    ws = wb.active
+    
+    # Challan Mappings - All Size 14 (User requested 14 for Challan separately, I should check if they want 10 here too? "in invoice bill this ####" - context implies Invoice. I'll touch Invoice mostly.
+    # But "numerics to 10 in a row where not fitted".
+    # I'll keep Challan as 14 unless requested, assuming the #### was in Invoice.)
+    
+    ws['L5'] = data['date']; apply_style(ws['L5'], 14)
+    ws['K6'] = data['supplier']; apply_style(ws['K6'], 14)
+    
+    # K8: Supplier GST
+    ws['K8'] = data.get('supplier_gst', ''); apply_style(ws['K8'], 14)
+    
+    # E10: Order No
+    ws['E10'] = data.get('order_no', ''); apply_style(ws['E10'], 14)
+    
+    # E12: Challan No
+    ws['E12'] = data['challan_no']; apply_style(ws['E12'], 14)
+    
+    # Table - Dynamic Rows starting at 16
+    r = 16
+    
+    # Check if we have multiple items or single (legacy support)
+    items = data.get('items', [])
+    if not items:
+        # Create single item from flat data
+        items = [{'material': data.get('material', ''), 'quantity': data.get('quantity', '')}]
+    
+    for i, item in enumerate(items):
+        current_row = r + i
+        ws[f'B{current_row}'] = i + 1; apply_style(ws[f'B{current_row}'], 14)
+        ws[f'D{current_row}'] = item['quantity']; apply_style(ws[f'D{current_row}'], 14)
+        ws[f'H{current_row}'] = item['material']; apply_style(ws[f'H{current_row}'], 14)
+        
+    # Reverted Column Width Adjustments
+    
+    wb.save(output_path)
+    return output_path
+
+def safe_write(ws, cell_ref, value, font_size=None):
+    """
+    Safely write to a cell, finding the top-left cell if merged.
+    Also applies style if font_size is provided.
+    """
+    import openpyxl
+    
+    # Check if cell is within a merged range
+    for range_ in ws.merged_cells.ranges:
+        if cell_ref in range_:
+            # Write to the top-left cell of the merged range
+            top_left = range_.coord.split(':')[0]
+            ws[top_left] = value
+            if font_size:
+                apply_style(ws[top_left], font_size)
+            return
+
+    # Not merged (or we are the top-left/target)
+    # Note: If cell is part of merge but not top-left, accessing ws[cell_ref] returns MergedCell
+    # But cell_ref in range_ should catch that.
+    
+    # Attempt direct write
+    try:
+        ws[cell_ref] = value
+        if font_size:
+            apply_style(ws[cell_ref], font_size)
+    except AttributeError:
+        # Fallback if somehow missed (MergedCell has no value setter)
+        pass 
