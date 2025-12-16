@@ -34,10 +34,72 @@ class PDF(FPDF):
 
     def footer(self):
         # Remove footer if using a full page template, or keep page numbers if needed
-        # self.set_y(-15)
-        # self.set_font('Helvetica', 'I', 8)
-        # self.cell(0, 10, f'Page {self.page_no()}', align='C')
         pass
+
+    def draw_invoice_template(self):
+        """Draws the invoice layout manually (borders, lines, headers) if no image."""
+        self.set_line_width(0.3)
+        self.set_draw_color(0)
+        self.set_text_color(0)
+        
+        # Outer Border
+        self.rect(10, 10, 190, 277)
+        
+        # Header Section
+        self.line(10, 40, 200, 40) # Below Title
+        self.set_font("Helvetica", "B", 16)
+        self.set_xy(10, 15)
+        self.cell(190, 10, "TAX INVOICE", align="C", border=0)
+        
+        # Details Box
+        self.line(10, 90, 200, 90) # Below Order/Challan details
+        
+        # Left/Right Vertical Split (Header)
+        self.line(105, 40, 105, 90) 
+        
+        # Labels for Header
+        self.set_font("Helvetica", "B", 10)
+        
+        # Right Side Labels
+        self.text(107, 45, "Invoice No:")
+        self.text(107, 55, "Invoice Date:")
+        self.text(107, 65, "Challan No:")
+        self.text(107, 75, "Order No:")
+        
+        # Buyer Section
+        self.line(10, 140, 200, 140) # Below Buyer Details
+        self.text(12, 95, "Bill To (Buyer):")
+        
+        # Item Table Header
+        self.line(10, 150, 200, 150) # End of Header Row
+        self.text(12, 147, "Sr.")
+        self.text(25, 147, "Description of Goods")
+        self.text(100, 147, "Meters")
+        self.text(115, 147, "Rate")
+        self.text(135, 147, "Taxable")
+        self.text(155, 147, "CGST+SGST")
+        self.text(182, 147, "Total")
+        
+        # Vertical Lines for Table
+        # Sr | Desc | Mtr | Rate | Taxable | Tax | Total
+        col_x = [20, 95, 112, 130, 150, 175]
+        for x in col_x:
+            self.line(x, 140, x, 220) # Down to totals
+            
+        # Bottom Section
+        self.line(10, 220, 200, 220) # End of Items
+        
+        # Footer Totals Layout
+        self.line(130, 230, 200, 230)
+        self.line(130, 240, 200, 240)
+        
+        self.set_font("Helvetica", "", 10)
+        self.text(132, 225, "Taxable Value:")
+        self.text(132, 235, "CGST + SGST:")
+        self.text(132, 245, "Grand Total:")
+        
+        self.set_font("Helvetica", "B", 10)
+        self.text(12, 230, "Amount In Words:")
 
 from num2words import num2words
 
@@ -54,6 +116,10 @@ def generate_invoice_pdf(invoice_data, layout_config=None, show_grid=False):
     pdf = PDF(background_image=template_path)
     pdf.add_page()
     
+    # If no background image, draw manual lines
+    if not template_path:
+        pdf.draw_invoice_template()
+    
     if show_grid:
         pdf.draw_grid()
     
@@ -63,86 +129,84 @@ def generate_invoice_pdf(invoice_data, layout_config=None, show_grid=False):
     # ---------------------------------------------------------
     # USER PROVIDED COORDINATES (DEFAULTS)
     # ---------------------------------------------------------
+    # Adjusted defaults to align with manual grid
     defaults = {
-        "inv_date": (40, 69),
-        "challan_no": (170, 64),
-        "challan_date": (170, 69),
-        "order_no": (170, 75),
-        "order_date": (170, 82),
-        "buyer_name": (40, 98),
-        "buyer_address": (40, 105),
-        "buyer_gst": (40, 115),
+        "inv_date": (135, 55),  # Aligned to R-Side Box
+        "invoice_no": (135, 45),
+        "challan_no": (135, 65),
+        "order_no": (135, 75),
         
-        # Table Row (Y=145)
-        "sr_no": (10, 145),
-        "item_desc": (30, 145),
-        "mtr": (102, 145),
-        "rate": (115, 145),
-        "taxable_val": (135, 145),
-        "gst_rate": (150, 145),
-        "gst_amt": (160, 145),
-        "row_total": (180, 145),
+        "buyer_name": (15, 100),
+        "buyer_address": (15, 105),
+        "buyer_gst": (15, 130),
+        
+        # Table Row (Y=155 start)
+        "sr_no": (12, 155),
+        "item_desc": (25, 155),
+        "mtr": (100, 155),
+        "rate": (118, 155),
+        "taxable_val": (135, 155),
+        # gst_rate skipped in manual col
+        "gst_amt": (158, 155),
+        "row_total": (180, 155),
         
         # Bottom Section
         "taxable_val_btm": (180, 224),
-        "amount_words": (20, 225), # Using X=20 start for better wrap space
-        "cgst_amt": (180, 228),
-        "sgst_amt": (180, 235),
-        "grand_total": (180, 242)
+        "amount_words": (45, 230), 
+        "cgst_amt": (180, 234), # Manual lines at 230, 240
+        "sgst_amt": (180, 238), # squeeze
+        "grand_total": (180, 246)
     }
     
     # Merge defaults with user config if provided
     config = defaults.copy()
     if layout_config:
         config.update(layout_config)
-
+    
     # Helper to draw text at config key
     def draw(key, text, bold=False, align="L"):
-        if key in config:
-            x, y = config[key]
-            pdf.set_xy(x, y)
-            if bold: pdf.set_font("Helvetica", "B", 10)
-            else: pdf.set_font("Helvetica", "", 10)
+        # Special keys handling
+        if key not in config: return
             
-            if show_grid:
-                pdf.set_text_color(0, 0, 255)
-                pdf.cell(50, 10, f"[{key}]", border=0, align=align)
-                pdf.set_text_color(0)
-            else:
-                pdf.cell(50, 10, str(text), border=0, align=align)
+        x, y = config[key]
+        pdf.set_xy(x, y)
+        if bold: pdf.set_font("Helvetica", "B", 10)
+        else: pdf.set_font("Helvetica", "", 10)
+        
+        if show_grid:
+            pdf.set_text_color(0, 0, 255)
+            pdf.cell(50, 10, f"[{key}]", border=0, align=align)
+            pdf.set_text_color(0)
+        else:
+            pdf.cell(50, 10, str(text), border=0, align=align)
 
     # 1. Invoice Date
     draw("inv_date", invoice_data['date'])
     
+    # 1.1 Invoice No (New)
+    draw("invoice_no", invoice_data.get('invoice_no', ''))
+
     # 2. Challan No
     draw("challan_no", invoice_data['challan_no'])
     
-    # 3. Challan Date (Same as entry date)
-    draw("challan_date", invoice_data.get('challan_date', ''))
-    
     # 4. Order No
     draw("order_no", invoice_data.get('order_no', ''))
-    
-    # 5. Order Date
-    draw("order_date", invoice_data.get('order_date', ''))
     
     # 6. Buyer Name
     draw("buyer_name", invoice_data['supplier_name'], bold=True)
     
     # 7. Address
-    # Multi-line handling for address? For now simply placing it.
-    # We might need set_xy then multi_cell if address is long.
     x, y = config["buyer_address"]
     pdf.set_xy(x, y)
     if not show_grid:
-        pdf.multi_cell(100, 5, str(invoice_data.get('supplier_address', '')))
+        pdf.multi_cell(80, 5, str(invoice_data.get('supplier_address', '')))
     
     # 8. GSTIN
-    draw("buyer_gst", invoice_data.get('supplier_gst', ''))
+    draw("buyer_gst", f"GSTIN: {invoice_data.get('supplier_gst', '')}")
     
     # 9. Sr No (Sequential) - TABLE HEADER / LOOP
     # Table Config
-    y_start = 145
+    y_start = 155
     row_height = 8 # mm
     
     items = invoice_data.get('items', [])
