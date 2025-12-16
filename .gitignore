@@ -23,7 +23,8 @@ generated/
 .idea/
 
 # Secrets
-*.txt
+# *.txt (Disabled to allow packages.txt)
+
 *token*
 *secret*
 github_access_token.txt

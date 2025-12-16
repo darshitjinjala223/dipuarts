@@ -362,11 +362,14 @@ elif menu == "New Inward (Challan)":
                             # macOS - Use AppleScript (High Fidelity)
                             utils_native.convert_excel_to_pdf(xls_path_temp, pdf_path_temp)
                         else:
-                            # Linux/Cloud - Use FPDF
-                            # Requires 'challan_template.png' for background
-                            pdf_bytes = utils_pdf.generate_challan_pdf(challan_data)
-                            with open(pdf_path_temp, "wb") as f:
-                                f.write(pdf_bytes)
+                            # Linux/Cloud - Use LibreOffice (High Fidelity)
+                            success, msg = utils_native.convert_with_libreoffice(xls_path_temp, pdf_path_temp)
+                            if not success:
+                                # Fallback to FPDF if LibreOffice fails (e.g. not installed yet)
+                                st.warning(f"LibreOffice failed ({msg}), using basic fallback.")
+                                pdf_bytes = utils_pdf.generate_challan_pdf(challan_data)
+                                with open(pdf_path_temp, "wb") as f:
+                                    f.write(pdf_bytes)
                     
                     # Sync to Drive
                     sync_to_drive(xls_path_temp, "Challans")
@@ -619,14 +622,18 @@ elif menu == "Dashboard":
                         # macOS - High Fidelity
                         success_pdf, pdf_res = utils_native.convert_excel_to_pdf(xls_path_curr, pdf_path_curr)
                     else:
-                        # Linux/Cloud - FPDF Fallback
-                        try:
-                            pdf_bytes = utils_pdf.generate_invoice_pdf(inv_data)
-                            with open(pdf_path_curr, "wb") as f:
-                                f.write(pdf_bytes)
-                            success_pdf = True
-                        except Exception as e:
-                            st.error(f"PDF Generation Failed: {e}")
+                        # Linux/Cloud - Use LibreOffice (High Fidelity)
+                        success_pdf, msg = utils_native.convert_with_libreoffice(xls_path_curr, pdf_path_curr)
+                        if not success_pdf:
+                            st.warning(f"LibreOffice PDF Gen failed: {msg}. Using fallback.")
+                            # Fallback FPDF
+                            try:
+                                pdf_bytes = utils_pdf.generate_invoice_pdf(inv_data)
+                                with open(pdf_path_curr, "wb") as f:
+                                    f.write(pdf_bytes)
+                                success_pdf = True
+                            except Exception as e:
+                                st.error(f"Fallback PDF Failed: {e}")
 
                 # Update Master Ledger
                 xls_gen.update_master_ledger(inv_data)

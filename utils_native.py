@@ -59,3 +59,51 @@ def convert_excel_to_pdf(input_xlsx, output_pdf):
         return False, "Timeout: Excel took too long to respond."
     except Exception as e:
         return False, str(e)
+    except Exception as e:
+        return False, str(e)
+
+def convert_with_libreoffice(input_xlsx, output_pdf):
+    """
+    Converts Excel to PDF using LibreOffice (Linux/Cloud).
+    Requires 'libreoffice' to be installed (via packages.txt).
+    """
+    input_abs = os.path.abspath(input_xlsx)
+    out_dir = os.path.dirname(os.path.abspath(output_pdf))
+    
+    # Command: soffice --headless --convert-to pdf <input> --outdir <output_dir>
+    # Note: LibreOffice uses the same basename. If output_pdf name differs, we might need rename.
+    # But usually we generate [name].xlsx -> [name].pdf so it matches automatically.
+    
+    cmd = [
+        'soffice', 
+        '--headless', 
+        '--convert-to', 
+        'pdf', 
+        input_abs, 
+        '--outdir', 
+        out_dir
+    ]
+    
+    try:
+        # TIMEOUT is critical as soffice can hang
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        # Check if file created
+        # LibreOffice uses input filename with .pdf extension
+        base_name = os.path.splitext(os.path.basename(input_xlsx))[0]
+        expected_pdf = os.path.join(out_dir, f"{base_name}.pdf")
+        
+        if os.path.exists(expected_pdf):
+            # If the requested output name is different, rename it
+            if os.path.abspath(output_pdf) != os.path.abspath(expected_pdf):
+                os.rename(expected_pdf, output_pdf)
+            return True, output_pdf
+        else:
+            return False, f"LibreOffice failed: {result.stderr or result.stdout}"
+
+    except subprocess.TimeoutExpired:
+        return False, "Timeout: LibreOffice took too long."
+    except FileNotFoundError:
+        return False, "LibreOffice not found. Ensure 'libreoffice' is in packages.txt"
+    except Exception as e:
+        return False, str(e)
