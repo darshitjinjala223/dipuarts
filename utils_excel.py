@@ -46,6 +46,9 @@ def generate_invoice_excel(data, template_path="templates/INVOICE FORMAT2.xlsx",
     # 2. Buyer Details [D17, D18, D20]
     ws['D17'] = data['supplier_name']; apply_style(ws['D17'])
     ws['D18'] = data.get('supplier_address', ''); apply_style(ws['D18'])
+    import openpyxl
+    ws['D18'].alignment = openpyxl.styles.Alignment(wrap_text=True, vertical='top')
+    
     ws['D20'] = data.get('supplier_gst', ''); apply_style(ws['D20'])
     
     # 3. Line Items (Dynamic Rows starting at 24)
@@ -106,7 +109,15 @@ def generate_invoice_excel(data, template_path="templates/INVOICE FORMAT2.xlsx",
         words = f"{total_val} Only"
         
     ws['B39'] = f"Total Invoice amount in words: {words}"
-    apply_style(ws['B39'], 12) # Keep text 12
+    apply_style(ws['B39'], 12)
+
+    # FIX: Increase Header Row Heights to prevent address cut-off
+    ws.row_dimensions[6].height = 30 
+    ws.row_dimensions[7].height = 30
+    ws.row_dimensions[8].height = 30
+    
+    # 3. Line Items (Dynamic Rows starting at 24)
+    r = 24
     
     # Reverted Column Width Adjustments
     
