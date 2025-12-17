@@ -758,8 +758,20 @@ elif menu == "Invoice History":
                 if os.path.exists(pdf_p):
                     with open(pdf_p, "rb") as f:
                         h_c2.download_button("⬇️ PDF", f.read(), f"{fname}.pdf", key=f"dl_h_p_{idx}")
-                else:
-                    h_c2.info("PDF not found (Regenerate to create)")
+                elif os.path.exists(xls_p):
+                    # Excel exists, PDF missing -> Offer Generation
+                    if h_c2.button("📄 Create PDF", key=f"btn_h_pdf_{idx}"):
+                        with st.spinner("Converting to PDF..."):
+                            if platform.system() == "Darwin":
+                                success, _ = utils_native.convert_excel_to_pdf(xls_p, pdf_p)
+                            else:
+                                success, _ = utils_native.convert_with_libreoffice(xls_p, pdf_p)
+                            
+                            if success:
+                                st.success("PDF Created!")
+                                st.rerun()
+                            else:
+                                h_c2.error("PDF Failed")
 
                 col_del1, col_del2 = st.columns([1, 4])
                 if col_del1.button("🗑 Delete Invoice", key=f"del_{row['id']}", type="primary"):
