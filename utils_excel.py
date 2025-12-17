@@ -188,16 +188,38 @@ def generate_challan_excel(data, template_path="templates/CHALLAN FORMAT.xlsx", 
 def setup_page_layout(ws):
     """
     Configures the worksheet for printing:
-    - A4 Paper
+    - A4 Paper, Portrait
     - Fit to 1 Page Width
-    - Clear Print Area (to include everything)
+    - Narrow Margins
+    - Explicit Print Area (A1 to L[MaxRow])
     """
     try:
-        ws.print_area = None # Clear specific print area
+        # A4 Paper & Portrait
         ws.page_setup.paperSize = ws.page_setup.PAPERSIZE_A4
+        ws.page_setup.orientation = ws.page_setup.ORIENTATION_PORTRAIT
+        
+        # Fit to 1 Page Wide, indefinite height
         ws.page_setup.fitToWidth = 1
-        ws.page_setup.fitToHeight = False # Allow multi-page height
-    except:
+        ws.page_setup.fitToHeight = False
+        
+        # Narrow Margins (0.25 inch ~ 0.6 cm)
+        ws.page_margins.left = 0.25
+        ws.page_margins.right = 0.25
+        ws.page_margins.top = 0.25
+        ws.page_margins.bottom = 0.25
+        ws.page_margins.header = 0.0
+        ws.page_margins.footer = 0.0
+        
+        # Center Horizontally
+        ws.print_options.horizontalCentered = True
+        
+        # Explicit Print Area (Content is usually up to Col L)
+        max_row = ws.max_row
+        # Ensure we capture everything
+        ws.print_area = f"A1:L{max_row}"
+        
+    except Exception as e:
+        print(f"Page Setup Error: {e}")
         pass
 
 def safe_write(ws, cell_ref, value, font_size=None):
