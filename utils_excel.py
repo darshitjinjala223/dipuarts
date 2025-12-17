@@ -108,7 +108,10 @@ def generate_invoice_excel(data, template_path="templates/INVOICE FORMAT2.xlsx",
     ws['B39'] = f"Total Invoice amount in words: {words}"
     apply_style(ws['B39'], 12) # Keep text 12
     
-    # Reverted Column Width adjustments
+    # Reverted Column Width Adjustments
+    
+    # Force Page Layout to A4 & Fit Width to avoid cut-off in PDF
+    setup_page_layout(ws)
     
     wb.save(output_path)
     return output_path
@@ -165,8 +168,26 @@ def generate_challan_excel(data, template_path="templates/CHALLAN FORMAT.xlsx", 
         
     # Reverted Column Width Adjustments
     
+    # Force Page Layout to A4 & Fit Width
+    setup_page_layout(ws)
+    
     wb.save(output_path)
     return output_path
+
+def setup_page_layout(ws):
+    """
+    Configures the worksheet for printing:
+    - A4 Paper
+    - Fit to 1 Page Width
+    - Clear Print Area (to include everything)
+    """
+    try:
+        ws.print_area = None # Clear specific print area
+        ws.page_setup.paperSize = ws.page_setup.PAPERSIZE_A4
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = False # Allow multi-page height
+    except:
+        pass
 
 def safe_write(ws, cell_ref, value, font_size=None):
     """
