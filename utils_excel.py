@@ -111,10 +111,19 @@ def generate_invoice_excel(data, template_path="templates/INVOICE FORMAT2.xlsx",
     ws['B39'] = f"Total Invoice amount in words: {words}"
     apply_style(ws['B39'], 12)
 
-    # FIX: Increase Header Row Heights to prevent address cut-off
-    ws.row_dimensions[6].height = 50 
-    ws.row_dimensions[7].height = 50
-    ws.row_dimensions[8].height = 50
+    ws['B39'] = f"Total Invoice amount in words: {words}"
+    apply_style(ws['B39'], 12)
+
+    # FIX: Reduce Header Font Size to fit address (User Request)
+    # Instead of increasing height, we shrink the text in Rows 6-9 (Address lines)
+    for r_idx in range(6, 10):
+        for col in range(1, 13): # A to L
+            cell = ws.cell(row=r_idx, column=col)
+            if cell.value:
+                # Apply smaller font (size 10)
+                # Keep font name if possible, or default to Times New Roman
+                current_font_name = cell.font.name if cell.font else 'Times New Roman'
+                cell.font = Font(name=current_font_name, size=10)
     
     # 3. Line Items (Dynamic Rows starting at 24)
     r = 24
