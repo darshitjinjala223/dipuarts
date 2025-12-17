@@ -835,6 +835,13 @@ elif menu == "Suppliers":
                             file_name=f"Invoice_{row['invoice_no']}_{selected_s}.xlsx", 
                             key=f"dl_inv_{idx}"
                         )
+                        if 'pdf' in data and data['pdf']:
+                            c4.download_button(
+                                "⬇️ PDF", 
+                                data=data['pdf'], 
+                                file_name=f"Invoice_{row['invoice_no']}_{selected_s}.pdf", 
+                                key=f"dl_inv_pdf_{idx}"
+                            )
                     else:
                         if c4.button("Prepare Docs", key=f"btn_sup_inv_{idx}"):
                              # Generate Logic
@@ -875,11 +882,23 @@ elif menu == "Suppliers":
                             }
                             
                             try:
-                                xlsx_path = xls_gen.generate_invoice_excel(inv_data, output_path=f"generated/temp_inv_{row['invoice_no']}.xlsx")
-                                with open(xlsx_path, "rb") as f: inv_bytes = f.read()
-                                
-                                st.session_state[gen_key] = {'xls': inv_bytes}
-                                st.rerun()
+                                with st.spinner("Generating Docs..."):
+                                    xlsx_path = xls_gen.generate_invoice_excel(inv_data, output_path=f"generated/temp_inv_{row['invoice_no']}.xlsx")
+                                    with open(xlsx_path, "rb") as f: inv_bytes = f.read()
+                                    
+                                    # PDF Generation
+                                    pdf_path = xlsx_path.replace(".xlsx", ".pdf")
+                                    pdf_bytes = None
+                                    if platform.system() == "Darwin":
+                                        success, _ = utils_native.convert_excel_to_pdf(xlsx_path, pdf_path)
+                                    else:
+                                        success, _ = utils_native.convert_with_libreoffice(xlsx_path, pdf_path)
+                                        
+                                    if success and os.path.exists(pdf_path):
+                                        with open(pdf_path, "rb") as f: pdf_bytes = f.read()
+                                    
+                                    st.session_state[gen_key] = {'xls': inv_bytes, 'pdf': pdf_bytes}
+                                    st.rerun()
                             except Exception as e:
                                 c4.error(f"Err: {e}")
 
@@ -915,6 +934,13 @@ elif menu == "Suppliers":
                              file_name=f"Challan_{row['challan_no']}_{selected_s}.xlsx", 
                              key=f"dl_ch_{idx}"
                          )
+                         if 'pdf' in data and data['pdf']:
+                             cc5.download_button(
+                                 "⬇️ PDF", 
+                                 data=data['pdf'], 
+                                 file_name=f"Challan_{row['challan_no']}_{selected_s}.pdf", 
+                                 key=f"dl_ch_pdf_{idx}"
+                             )
                     else:
                         if cc5.button("Prepare Docs", key=f"btn_sup_ch_{idx}"):
                             # Regenerate Challan Excel
@@ -928,11 +954,23 @@ elif menu == "Suppliers":
                             }
                             
                             try:
-                                xlsx_path = xls_gen.generate_challan_excel(chal_data, output_path=f"generated/temp_ch_{row['challan_no']}.xlsx")
-                                with open(xlsx_path, "rb") as f: ch_bytes = f.read()
-                                
-                                st.session_state[gen_key] = {'xls': ch_bytes}
-                                st.rerun()
+                                with st.spinner("Generating..."):
+                                    xlsx_path = xls_gen.generate_challan_excel(chal_data, output_path=f"generated/temp_ch_{row['challan_no']}.xlsx")
+                                    with open(xlsx_path, "rb") as f: ch_bytes = f.read()
+                                    
+                                    # PDF Generation
+                                    pdf_path = xlsx_path.replace(".xlsx", ".pdf")
+                                    pdf_bytes = None
+                                    if platform.system() == "Darwin":
+                                        success, _ = utils_native.convert_excel_to_pdf(xlsx_path, pdf_path)
+                                    else:
+                                        success, _ = utils_native.convert_with_libreoffice(xlsx_path, pdf_path)
+                                        
+                                    if success and os.path.exists(pdf_path):
+                                        with open(pdf_path, "rb") as f: pdf_bytes = f.read()
+                                    
+                                    st.session_state[gen_key] = {'xls': ch_bytes, 'pdf': pdf_bytes}
+                                    st.rerun()
                             except Exception as e:
                                 cc5.error("Err")
 
