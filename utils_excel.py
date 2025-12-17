@@ -233,13 +233,14 @@ def setup_page_layout(ws):
         ws.page_setup.orientation = ws.page_setup.ORIENTATION_PORTRAIT
         
         # Fit to 1 Page Wide, indefinite height
+        # Fit to 1 Page Wide, indefinite height
         ws.page_setup.scale = None # Clear scaling
         ws.page_setup.fitToWidth = 1
         ws.page_setup.fitToHeight = False
         
-        # Narrow Margins (0.25 inch ~ 0.6 cm)
-        ws.page_margins.left = 0.25
-        ws.page_margins.right = 0.25
+        # Increase Margins to 0.75 inch to force "Centering" visual
+        ws.page_margins.left = 0.75
+        ws.page_margins.right = 0.75
         ws.page_margins.top = 0.25
         ws.page_margins.bottom = 0.25
         ws.page_margins.header = 0.0
