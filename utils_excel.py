@@ -114,17 +114,42 @@ def generate_invoice_excel(data, template_path="templates/INVOICE FORMAT2.xlsx",
     ws['B39'] = f"Total Invoice amount in words: {words}"
     apply_style(ws['B39'], 12)
 
-    # FIX: Reduce Header Font Size to fit address (User Request)
-    # Instead of increasing height, we shrink the text in Rows 6-9 (Address lines)
-    for r_idx in range(6, 10):
-        for col in range(1, 13): # A to L
+    # FIX: Dynamic Font Size Adjustment for Header (User Request)
+    # Search top rows to find "DIPU ARTS" and Address, then reduce size.
+    for r_idx in range(1, 15): # Scan Header Rows
+        for col in range(1, 13):
             cell = ws.cell(row=r_idx, column=col)
-            if cell.value:
-                # Apply smaller font (size 10)
-                # Keep font name if possible, or default to Times New Roman
-                current_font_name = cell.font.name if cell.font else 'Times New Roman'
-                cell.font = Font(name=current_font_name, size=10)
-    
+            if not cell.value:
+                continue
+                
+            val_str = str(cell.value)
+            
+            # Check for Company Name
+            if "DIPU ARTS" in val_str.upper():
+                current_size = cell.font.size if cell.font and cell.font.size else 20 # Default large
+                new_size = max(8, current_size - 2) # Reduce by 2
+                current_name = cell.font.name if cell.font else 'Times New Roman'
+                # Preserve color/bold if possible, but Font alignment is separate
+                # Complex: styles are immutable. We copy critical attrs.
+                # Assuming standard black/bold red headers. 
+                # Ideally just change size.
+                current_color = cell.font.color
+                current_bold = cell.font.bold
+                cell.font = Font(name=current_name, size=new_size, color=current_color, bold=current_bold)
+                
+            # Check for Address components
+            # "Gala No", "Patil Nagar", "Choudhary Compound"
+            elif any(x in val_str for x in ["Gala No", "Patil Nagar", "Choudhary"]):
+                current_size = cell.font.size if cell.font and cell.font.size else 12
+                # User asked to reduce by 4 points
+                new_size = max(6, current_size - 4) 
+                current_name = cell.font.name if cell.font else 'Times New Roman'
+                current_color = cell.font.color
+                current_bold = cell.font.bold
+                cell.font = Font(name=current_name, size=new_size, color=current_color, bold=current_bold)
+                # Also ensure wrap text
+                cell.alignment = openpyxl.styles.Alignment(wrap_text=True, vertical='top', horizontal=cell.alignment.horizontal)
+
     # 3. Line Items (Dynamic Rows starting at 24)
     r = 24
     
