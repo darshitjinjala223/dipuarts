@@ -112,9 +112,9 @@ def generate_invoice_excel(data, template_path="templates/INVOICE FORMAT2.xlsx",
     apply_style(ws['B39'], 12)
 
     # FIX: Increase Header Row Heights to prevent address cut-off
-    ws.row_dimensions[6].height = 30 
-    ws.row_dimensions[7].height = 30
-    ws.row_dimensions[8].height = 30
+    ws.row_dimensions[6].height = 50 
+    ws.row_dimensions[7].height = 50
+    ws.row_dimensions[8].height = 50
     
     # 3. Line Items (Dynamic Rows starting at 24)
     r = 24
@@ -150,17 +150,17 @@ def generate_challan_excel(data, template_path="templates/CHALLAN FORMAT.xlsx", 
     # But "numerics to 10 in a row where not fitted".
     # I'll keep Challan as 14 unless requested, assuming the #### was in Invoice.)
     
-    ws['L5'] = data['date']; apply_style(ws['L5'], 14)
-    ws['K6'] = data['supplier']; apply_style(ws['K6'], 14)
+    ws['L5'] = data['date']; apply_style(ws['L5'], 12)
+    ws['K6'] = data['supplier']; apply_style(ws['K6'], 12)
     
     # K8: Supplier GST
-    ws['K8'] = data.get('supplier_gst', ''); apply_style(ws['K8'], 14)
+    ws['K8'] = data.get('supplier_gst', ''); apply_style(ws['K8'], 12)
     
     # E10: Order No
-    ws['E10'] = data.get('order_no', ''); apply_style(ws['E10'], 14)
+    ws['E10'] = data.get('order_no', ''); apply_style(ws['E10'], 12)
     
     # E12: Challan No
-    ws['E12'] = data['challan_no']; apply_style(ws['E12'], 14)
+    ws['E12'] = data['challan_no']; apply_style(ws['E12'], 12)
     
     # Table - Dynamic Rows starting at 16
     r = 16
@@ -173,9 +173,9 @@ def generate_challan_excel(data, template_path="templates/CHALLAN FORMAT.xlsx", 
     
     for i, item in enumerate(items):
         current_row = r + i
-        ws[f'B{current_row}'] = i + 1; apply_style(ws[f'B{current_row}'], 14)
-        ws[f'D{current_row}'] = item['quantity']; apply_style(ws[f'D{current_row}'], 14)
-        ws[f'H{current_row}'] = item['material']; apply_style(ws[f'H{current_row}'], 14)
+        ws[f'B{current_row}'] = i + 1; apply_style(ws[f'B{current_row}'], 12)
+        ws[f'D{current_row}'] = item['quantity']; apply_style(ws[f'D{current_row}'], 12)
+        ws[f'H{current_row}'] = item['material']; apply_style(ws[f'H{current_row}'], 12)
         
     # Reverted Column Width Adjustments
     
@@ -199,6 +199,7 @@ def setup_page_layout(ws):
         ws.page_setup.orientation = ws.page_setup.ORIENTATION_PORTRAIT
         
         # Fit to 1 Page Wide, indefinite height
+        ws.page_setup.scale = None # Clear scaling
         ws.page_setup.fitToWidth = 1
         ws.page_setup.fitToHeight = False
         
