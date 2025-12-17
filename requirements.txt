@@ -4,3 +4,6 @@ fpdf2
 Pillow
 openpyxl
 num2words
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2

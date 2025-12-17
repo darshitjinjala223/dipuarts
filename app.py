@@ -179,33 +179,50 @@ def get_drive_path():
             return p
     return None
 
+import utils_drive
+
 def sync_to_drive(src_path, dest_subfolder, dest_filename=None):
-    """Copy file to Google Drive folder/AutoBiller_Data/<subfolder>."""
-    drive_root = get_drive_path()
-    if not drive_root:
-        return False
-    
-    # Target Structure: Drive/AutoBiller_Data
-    app_root = os.path.join(drive_root, "AutoBiller_Data")
-    target_dir = os.path.join(app_root, dest_subfolder)
-    os.makedirs(target_dir, exist_ok=True)
-    
-    fname = dest_filename if dest_filename else os.path.basename(src_path)
-    dst = os.path.join(target_dir, fname)
-    
-    try:
-        shutil.copy2(src_path, dst)
-        return True
-    except Exception as e:
-        print(f"Sync Fail: {e}")
-        return False
+    """
+    Sync file to Google Drive.
+    - macOS: Copies to local 'Google Drive' folder.
+    - Cloud/Linux: Uses Drive API via Service Account.
+    """
+    if platform.system() == "Darwin":
+        # Local macOS Sync (Existing Logic)
+        drive_root = get_drive_path()
+        if not drive_root:
+            return False
+        
+        # Target Structure: Drive/AutoBiller_Data
+        app_root = os.path.join(drive_root, "AutoBiller_Data")
+        target_dir = os.path.join(app_root, dest_subfolder)
+        os.makedirs(target_dir, exist_ok=True)
+        
+        fname = dest_filename if dest_filename else os.path.basename(src_path)
+        dst = os.path.join(target_dir, fname)
+        
+        try:
+            shutil.copy2(src_path, dst)
+            return True
+        except Exception as e:
+            print(f"Sync Fail: {e}")
+            return False
+    else:
+        # Cloud API Sync
+        try:
+            # dest_subfolder e.g., "Invoices", "Database"
+            return utils_drive.sync_cloud(src_path, dest_subfolder)
+        except Exception as e:
+            print(f"Cloud Sync Fail: {e}")
+            return False
 
 def sync_db():
     """Sync the database file to Drive."""
     sync_to_drive("autobiller.db", "Database")
 
 # Initial Sync
-sync_db()
+if platform.system() == "Darwin" or "gcp_service_account" in st.secrets:
+    sync_db()
 
 st.title("🧾 Auto Biller")
 
