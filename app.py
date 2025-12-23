@@ -183,10 +183,25 @@ import utils_drive
 
 def sync_to_drive(src_path, dest_subfolder, dest_filename=None):
     """
-    Sync file to Google Drive.
-    - macOS: Copies to local 'Google Drive' folder.
-    - Cloud/Linux: Uses Drive API via Service Account.
+    1. Ensures a local backup copy in ./backups/data/
+    2. Syncs file to Google Drive (if available).
     """
+    # --- 1. Robust Local Backup ---
+    try:
+        local_backup_root = os.path.join(os.getcwd(), "backups", "data")
+        target_dir_local = os.path.join(local_backup_root, dest_subfolder)
+        os.makedirs(target_dir_local, exist_ok=True)
+        
+        fname = dest_filename if dest_filename else os.path.basename(src_path)
+        dst_local = os.path.join(target_dir_local, fname)
+        
+        if os.path.exists(src_path):
+            shutil.copy2(src_path, dst_local)
+            # print(f"Local Backup Success: {dst_local}")
+    except Exception as e:
+        print(f"Local Backup Failed: {e}")
+
+    # --- 2. Google Drive Sync ---
     if platform.system() == "Darwin":
         # Local macOS Sync (Existing Logic)
         drive_root = get_drive_path()
@@ -247,7 +262,39 @@ menu = st.sidebar.radio(
 
 
 if menu == "Settings":
-    st.header("Master Settings")
+    st.header("Master Settings 🔒")
+
+    # --- Authentication ---
+    if 'settings_unlocked' not in st.session_state:
+        st.session_state.settings_unlocked = False
+
+    if not st.session_state.settings_unlocked:
+        with st.form("auth_form"):
+            pwd = st.text_input("Enter Admin Password", type="password")
+            submitted = st.form_submit_button("Unlock Settings")
+            if submitted:
+                # Check against secrets
+                try:
+                    true_pwd = st.secrets["general"]["admin_password"]
+                except:
+                    true_pwd = "admin123" # Fallback if secrets fail to load
+                
+                if pwd == true_pwd:
+                    st.session_state.settings_unlocked = True
+                    st.rerun()
+                else:
+                    st.error("Incorrect Password")
+        st.stop() # Stop execution here if not unlocked
+    
+    # --- Unlock Button ---
+    col_lock, _ = st.columns([1, 5])
+    if col_lock.button("🔒 Lock Settings"):
+        st.session_state.settings_unlocked = False
+        st.rerun() 
+    st.divider()
+
+    # --- Protected Content ---
+    st.subheader("Manage Suppliers & Materials")
     
     col1, col2 = st.columns(2)
     
