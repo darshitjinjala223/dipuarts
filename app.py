@@ -264,26 +264,82 @@ menu = st.sidebar.radio(
 if menu == "Settings":
     st.header("Master Settings 🔒")
 
-    # --- Authentication ---
+    # --- Authentication (Keypad UI) ---
     if 'settings_unlocked' not in st.session_state:
         st.session_state.settings_unlocked = False
+    
+    # Session state for PIN entry
+    if 'auth_pin_buffer' not in st.session_state:
+        st.session_state.auth_pin_buffer = ""
 
     if not st.session_state.settings_unlocked:
-        with st.form("auth_form"):
-            pwd = st.text_input("Enter Admin Password", type="password")
-            submitted = st.form_submit_button("Unlock Settings")
-            if submitted:
-                # Check against secrets
-                try:
-                    true_pwd = st.secrets["general"]["admin_password"]
-                except:
-                    true_pwd = "admin123" # Fallback if secrets fail to load
-                
-                if pwd == true_pwd:
-                    st.session_state.settings_unlocked = True
-                    st.rerun()
-                else:
-                    st.error("Incorrect Password")
+        st.markdown("### Enter Admin PIN")
+        
+        # Display Masked PIN
+        pin_len = len(st.session_state.auth_pin_buffer)
+        st.text_input("PIN", value="•" * pin_len, disabled=True, key="pin_display", label_visibility="collapsed")
+        
+        # Keypad Layout
+        # 1 2 3
+        # 4 5 6
+        # 7 8 9
+        # C 0 ⏎
+        
+        c1, c2, c3 = st.columns([1, 1, 1])
+        
+        def add_digit(d):
+            st.session_state.auth_pin_buffer += str(d)
+            
+        def clear_pin():
+            st.session_state.auth_pin_buffer = ""
+            
+        def submit_pin():
+            # Check against secrets
+            try:
+                true_pwd = st.secrets["general"]["admin_password"]
+            except:
+                true_pwd = "123456" # Fallback numeric
+            
+            if st.session_state.auth_pin_buffer == str(true_pwd):
+                st.session_state.settings_unlocked = True
+                st.session_state.auth_pin_buffer = "" # Clear for next time
+                st.rerun()
+            else:
+                st.error("Incorrect PIN")
+                st.session_state.auth_pin_buffer = "" # Reset on fail
+
+        # Row 1
+        with c1: 
+            if st.button("1", use_container_width=True): add_digit(1)
+        with c2: 
+            if st.button("2", use_container_width=True): add_digit(2)
+        with c3: 
+            if st.button("3", use_container_width=True): add_digit(3)
+            
+        # Row 2
+        with c1: 
+            if st.button("4", use_container_width=True): add_digit(4)
+        with c2: 
+            if st.button("5", use_container_width=True): add_digit(5)
+        with c3: 
+            if st.button("6", use_container_width=True): add_digit(6)
+            
+        # Row 3
+        with c1: 
+            if st.button("7", use_container_width=True): add_digit(7)
+        with c2: 
+            if st.button("8", use_container_width=True): add_digit(8)
+        with c3: 
+            if st.button("9", use_container_width=True): add_digit(9)
+            
+        # Row 4 (Control)
+        with c1: 
+            if st.button("❌ C", use_container_width=True): clear_pin()
+        with c2: 
+            if st.button("0", use_container_width=True): add_digit(0)
+        with c3: 
+            if st.button("✅ Go", use_container_width=True, type="primary"): submit_pin()
+
         st.stop() # Stop execution here if not unlocked
     
     # --- Unlock Button ---
