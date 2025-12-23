@@ -435,10 +435,10 @@ elif menu == "New Inward (Challan)":
                                 with open(pdf_path_temp, "wb") as f:
                                     f.write(pdf_bytes)
                     
-                    # Sync to Drive
-                    sync_to_drive(xls_path_temp, "Challans")
+                    # Sync to Drive (New Folder Structure)
+                    sync_to_drive(xls_path_temp, "Challan_Excel")
                     if os.path.exists(pdf_path_temp):
-                        sync_to_drive(pdf_path_temp, "Challans")
+                        sync_to_drive(pdf_path_temp, "Challan_PDF")
                     sync_db()
 
                     with open(xls_path_temp, "rb") as f:
@@ -702,10 +702,10 @@ elif menu == "Dashboard":
                 # Update Master Ledger
                 xls_gen.update_master_ledger(inv_data)
                 
-                # Sync Everything to Drive
-                sync_to_drive(xls_path_curr, "Invoices")
+                # Sync Everything to Drive (New Folder Structure)
+                sync_to_drive(xls_path_curr, "Invoice_Excel")
                 if success_pdf and os.path.exists(pdf_path_curr):
-                    sync_to_drive(pdf_path_curr, "Invoices")
+                    sync_to_drive(pdf_path_curr, "Invoice_PDF")
                 
                 # Sync Master & DB
                 sync_to_drive("generated/Master_Sales.xlsx", "Master")
