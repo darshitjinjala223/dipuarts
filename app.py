@@ -162,21 +162,42 @@ if 'db_init' not in st.session_state:
 def get_drive_path():
     """Attempt to locate the Google Drive root directory."""
     home = os.path.expanduser("~")
-    # Common locations
-    candidates = [
-        os.path.join(home, "Google Drive"),
-        os.path.join(home, "My Drive") # Sometimes purely My Drive
-    ]
-    # Check CloudStorage (Modern macOS)
+    
+    # 1. Check Modern macOS CloudStorage (Best Method)
     cs_path = os.path.join(home, "Library", "CloudStorage")
     if os.path.exists(cs_path):
         for d in os.listdir(cs_path):
             if "GoogleDrive" in d:
-                candidates.append(os.path.join(cs_path, d))
+                # The mount point itself is often Read-Only. 
+                # We usually need to go into 'My Drive' or 'Shared drives' inside it.
+                mount_point = os.path.join(cs_path, d)
+                
+                # Check for "My Drive" inside the mount
+                my_drive = os.path.join(mount_point, "My Drive")
+                if os.path.exists(my_drive):
+                    return my_drive
+                
+                # Fallback: Just return mount point if My Drive is missing (rare)
+                return mount_point
+
+    # 2. Check Legacy/Symlink Locations
+    candidates = [
+        os.path.join(home, "Google Drive"),
+        os.path.join(home, "My Drive") 
+    ]
     
     for p in candidates:
         if os.path.exists(p):
+            # Resolve symlink if possible
+            if os.path.islink(p):
+                real_p = os.path.realpath(p)
+                # Again, check for "My Drive" inside if it points to root mount
+                my_drive_nested = os.path.join(real_p, "My Drive")
+                if os.path.exists(my_drive_nested):
+                    return my_drive_nested
+                return real_p
             return p
+            
     return None
 
 import utils_drive
@@ -478,18 +499,24 @@ elif menu == "New Inward (Challan)":
                     
                     with st.spinner("Generating PDF..."):
                         # PDF Generation (OS Aware)
-                        if platform.system() == "Darwin":
-                            # macOS - Use AppleScript (High Fidelity)
-                            utils_native.convert_excel_to_pdf(xls_path_temp, pdf_path_temp)
-                        else:
-                            # Linux/Cloud - Use LibreOffice (High Fidelity)
-                            success, msg = utils_native.convert_with_libreoffice(xls_path_temp, pdf_path_temp)
-                            if not success:
-                                # Fallback to FPDF if LibreOffice fails (e.g. not installed yet)
-                                st.warning(f"LibreOffice failed ({msg}), using basic fallback.")
+                        # PDF Generation Cascade
+                        # 1. Try LibreOffice (Preferred)
+                        success, msg = utils_native.convert_with_libreoffice(xls_path_temp, pdf_path_temp)
+                        
+                        # 2. Try macOS AppleScript (if LibreOffice failed on Mac)
+                        if not success and platform.system() == "Darwin":
+                             # st.info("LibreOffice not found, trying Excel...")
+                             success, msg = utils_native.convert_excel_to_pdf(xls_path_temp, pdf_path_temp)
+
+                        # 3. Last Resort Fallback
+                        if not success:
+                            st.warning(f"High-Fidelity PDF failed ({msg}). Using basic fallback.")
+                            try:
                                 pdf_bytes = utils_pdf.generate_challan_pdf(challan_data)
                                 with open(pdf_path_temp, "wb") as f:
                                     f.write(pdf_bytes)
+                            except Exception as e:
+                                st.error(f"Fallback PDF Failed: {e}")
                     
                     # Sync to Drive (New Folder Structure)
                     sync_to_drive(xls_path_temp, "Challan_Excel")
@@ -737,23 +764,27 @@ elif menu == "Dashboard":
                 
                 # PDF Generation (OS Aware)
                 success_pdf = False
+                msg = "Unknown Error"
                 with st.spinner("Generating PDF... Please wait..."):
-                    if platform.system() == "Darwin":
-                        # macOS - High Fidelity
-                        success_pdf, pdf_res = utils_native.convert_excel_to_pdf(xls_path_curr, pdf_path_curr)
-                    else:
-                        # Linux/Cloud - Use LibreOffice (High Fidelity)
-                        success_pdf, msg = utils_native.convert_with_libreoffice(xls_path_curr, pdf_path_curr)
-                        if not success_pdf:
-                            st.warning(f"LibreOffice PDF Gen failed: {msg}. Using fallback.")
-                            # Fallback FPDF
-                            try:
-                                pdf_bytes = utils_pdf.generate_invoice_pdf(inv_data)
-                                with open(pdf_path_curr, "wb") as f:
-                                    f.write(pdf_bytes)
-                                success_pdf = True
-                            except Exception as e:
-                                st.error(f"Fallback PDF Failed: {e}")
+                    # PDF Generation Cascade
+                    # 1. Try LibreOffice (Preferred)
+                    success_pdf, msg = utils_native.convert_with_libreoffice(xls_path_curr, pdf_path_curr)
+                    
+                    # 2. Try macOS AppleScript (if LibreOffice failed on Mac)
+                    if not success_pdf and platform.system() == "Darwin":
+                         # st.info("LibreOffice not found, trying Excel...")
+                         success_pdf, msg = utils_native.convert_excel_to_pdf(xls_path_curr, pdf_path_curr)
+                    
+                    # Universal Fallback
+                    if not success_pdf:
+                        st.warning(f"High-Quality PDF failed ({msg}). Using basic fallback.")
+                        try:
+                            pdf_bytes = utils_pdf.generate_invoice_pdf(inv_data)
+                            with open(pdf_path_curr, "wb") as f:
+                                f.write(pdf_bytes)
+                            success_pdf = True
+                        except Exception as e:
+                            st.error(f"Fallback PDF Failed: {e}")
 
                 # Update Master Ledger
                 xls_gen.update_master_ledger(inv_data)

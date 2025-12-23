@@ -74,8 +74,15 @@ def convert_with_libreoffice(input_xlsx, output_pdf):
     # Note: LibreOffice uses the same basename. If output_pdf name differs, we might need rename.
     # But usually we generate [name].xlsx -> [name].pdf so it matches automatically.
     
+    # Determine Command
+    soffice_cmd = 'soffice'
+    
+    # On macOS, check if soffice is in path, else use full path
+    if os.path.exists("/Applications/LibreOffice.app/Contents/MacOS/soffice"):
+        soffice_cmd = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
+        
     cmd = [
-        'soffice', 
+        soffice_cmd, 
         '--headless', 
         '--convert-to', 
         'pdf', 
